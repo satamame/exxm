@@ -1,9 +1,11 @@
-﻿using System.IO;
-using YamlDotNet.Serialization;
-using Settings;
+﻿using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 Settings.Settings settings;
-var deserializer = new DeserializerBuilder().Build();
+var deserializer = new DeserializerBuilder()
+    .WithNamingConvention(CamelCaseNamingConvention.Instance)
+    .Build();
+
 using (var reader = new StreamReader("settings.yml"))
 {
     settings = deserializer.Deserialize<Settings.Settings>(reader);

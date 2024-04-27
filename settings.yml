@@ -1,10 +1,10 @@
-# ‘ÎÛ‚Æ‚·‚é Excel ƒuƒbƒNƒtƒ@ƒCƒ‹
-Excel:
-  Dir: ./
-  Recursive: false
-  Exclude: []
-  Ext: [.xlsm, .xlsb]
+# å¯¾è±¡ã¨ã™ã‚‹ Excel ãƒ–ãƒƒã‚¯ãƒ•ã‚¡ã‚¤ãƒ«
+excel:
+  dir: ./
+  recursive: false
+  exclude: []
+  ext: [.xlsm, .xlsb]
 
-# VBA ƒ}ƒNƒƒtƒ@ƒCƒ‹‚Ì’Šoæ
-Macros:
-  Dir: ./macros/
+# VBA ãƒã‚¯ãƒ­ãƒ•ã‚¡ã‚¤ãƒ«ã®æŠ½å‡ºå…ˆ
+macros:
+  dir: ./macros/
