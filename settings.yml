@@ -1,0 +1,10 @@
+# 対象とする Excel ブックファイル
+Excel:
+  Dir: ./
+  Recursive: false
+  Exclude: []
+  Ext: [.xlsm, .xlsb]
+
+# VBA マクロファイルの抽出先
+Macros:
+  Dir: ./macros/
