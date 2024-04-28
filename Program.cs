@@ -21,14 +21,16 @@ Console.WriteLine($"Excel Exclude: {string.Join(", ", settings.Excel.Exclude)}")
 Console.WriteLine($"Excel Ext: {string.Join(", ", settings.Excel.Ext)}");
 Console.WriteLine($"Macros Dir: {settings.Macros.Dir}");
 
-ExcelMacroIO macroIO = new ExcelMacroIO();
-var files = macroIO.FindExcelFiles(settings.Excel.Dir, settings.Excel.Recursive, settings.Excel.Exclude, settings.Excel.Ext);
+var files = ExcelMacroIO.FindExcelFiles(
+    settings.Excel.Dir, settings.Excel.Recursive, settings.Excel.Exclude,
+    settings.Excel.Ext
+);
 foreach (var f in files)
 {
     // Open メソッドに絶対パスを渡さないとエラーになるため (原因不明)
     //string currentDir = Directory.GetCurrentDirectory();
     //string path = Path.Combine(currentDir, f);
-    macroIO.ReadMacro(f);
+    ExcelMacroIO.ExtractMacros(f);
 }
 
 Console.WriteLine("何かキーを押して続行してください...");
