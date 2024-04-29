@@ -1,7 +1,9 @@
 # 対象とする Excel ブックファイル
 excel:
   dir: books
+  # 再帰的にディレクトリを探索するか。
   recursive: false
+  # 除外するファイル名。大文字小文字を区別し、拡張子を含みます。
   exclude: []
   ext: [.xlsm, .xlsb]
 

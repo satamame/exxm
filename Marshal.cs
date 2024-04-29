@@ -19,7 +19,6 @@ public static class Marshal2
         {
             CLSIDFromProgIDEx(progID, out clsid);
         }
-        //            catch
         catch (Exception)
         {
             CLSIDFromProgID(progID, out clsid);
@@ -31,13 +30,18 @@ public static class Marshal2
 
     //[DllImport(Microsoft.Win32.Win32Native.OLE32, PreserveSig = false)]
     [DllImport(OLE32, PreserveSig = false)]
-    private static extern void CLSIDFromProgIDEx([MarshalAs(UnmanagedType.LPWStr)] string progId, out Guid clsid);
+    private static extern void CLSIDFromProgIDEx(
+        [MarshalAs(UnmanagedType.LPWStr)] string progId, out Guid clsid);
 
     //[DllImport(Microsoft.Win32.Win32Native.OLE32, PreserveSig = false)]
     [DllImport(OLE32, PreserveSig = false)]
-    private static extern void CLSIDFromProgID([MarshalAs(UnmanagedType.LPWStr)] string progId, out Guid clsid);
+    private static extern void CLSIDFromProgID(
+        [MarshalAs(UnmanagedType.LPWStr)] string progId, out Guid clsid);
 
     //[DllImport(Microsoft.Win32.Win32Native.OLEAUT32, PreserveSig = false)]
     [DllImport(OLEAUT32, PreserveSig = false)]
-    private static extern void GetActiveObject(ref Guid rclsid, IntPtr reserved, [MarshalAs(UnmanagedType.Interface)] out object ppunk);
+    private static extern void GetActiveObject(
+        ref Guid rclsid,
+        IntPtr reserved,
+        [MarshalAs(UnmanagedType.Interface)] out object ppunk);
 }

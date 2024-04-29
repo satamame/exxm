@@ -21,16 +21,36 @@ Console.WriteLine($"Excel Exclude: {string.Join(", ", settings.Excel.Exclude)}")
 Console.WriteLine($"Excel Ext: {string.Join(", ", settings.Excel.Ext)}");
 Console.WriteLine($"Macros Dir: {settings.Macros.Dir}");
 
+/* コマンドライン引数を取得する */
+bool fromExcel = args.Contains("--from-excel");
+bool toExcel = args.Contains("--to-excel");
+bool clean = args.Contains("--clean");
+
+if (fromExcel && toExcel)
+{
+    Console.WriteLine("エラー: --from-excel と --to-excel は同時に指定できません。");
+    return;
+}
+
 var files = ExcelMacroIO.FindExcelFiles(
     settings.Excel.Dir, settings.Excel.Recursive, settings.Excel.Exclude,
     settings.Excel.Ext
 );
-foreach (var f in files)
+
+if (fromExcel)
 {
-    // Open メソッドに絶対パスを渡さないとエラーになるため (原因不明)
-    //string currentDir = Directory.GetCurrentDirectory();
-    //string path = Path.Combine(currentDir, f);
-    ExcelMacroIO.ExtractMacros(f);
+    foreach (var f in files)
+    {
+        try
+        {
+            ExcelMacroIO.ExtractMacros(f, clean);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"エラー: {e.Message}");
+            break;
+        }
+    }
 }
 
 Console.WriteLine("何かキーを押して続行してください...");

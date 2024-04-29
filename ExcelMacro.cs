@@ -21,43 +21,34 @@ public class ExcelMacroIO
             if (e.StartsWith('.'))
             {
                 files.AddRange(Directory.GetFiles(dir, $"*{e}", searchOption));
-            } else {
+            }
+            else
+            {
                 files.AddRange(Directory.GetFiles(dir, $"*.{e}", searchOption));
             }
         }
 
+        // exclude に指定されたファイル名と "~$" で始まるファイル名を除外する。
         foreach (var e in exclude)
         {
-            files.RemoveAll(f => f.Contains(e));
+            files.RemoveAll(f => Path.GetFileName(f) == e);
         }
-
-        // TODO: "~$" で始まるファイルを除外する
+        files.RemoveAll(f => Path.GetFileName(f).StartsWith("~$"));
 
         return files;
     }
 
-    public static bool ExtractMacros(string path)
+    public static bool ExtractMacros(string path, bool clean)
     {
-        if (ExcelMacroIO.IsMultipleExcelInstancesRunning())
-        {
-            var msg = "Excel のインスタンスが複数起動しています。\n"
-                + "起動するインスタンスは1個までにしてください。\n"
-                + "マクロの抽出を中止します。";
-            throw new Exception(msg);
-        }
+        CheckMultipleInstances();
+        (var app, var isRunning) = GetExcelInstance();
+        (var wb, var isOpen) = GetOrOpenWorkbook(app, path);
+
         // TODO: エラーハンドリングをして Excel のインスタンスが残らないようにする
-
-        var app = GetExcelInstance();
-
-        // TODO: Workbooks の中に開きたいブックがあれば Open せずにそれを使う
-
-        // Open メソッドに絶対パスを渡さないとエラーになる (原因不明)
-        var wb = app.Workbooks.Open(Path.GetFullPath(path));
 
         // wb のシート数を取得
         int sheetCount = wb.Sheets.Count;
         Console.WriteLine($"シート数: {sheetCount}");
-
 
         var vbaProject = wb.VBProject;
         VBComponents vbaComponents = vbaProject.VBComponents;
@@ -67,28 +58,34 @@ public class ExcelMacroIO
             Console.WriteLine(component.Name);
         }
 
-        wb.Close();
-        app.Quit();
+        if (!isOpen) wb.Close();
+        if (!isRunning) app.Quit();
         return true;
     }
 
     /// <summary>
-    /// Excel のインスタンスが複数起動しているかどうかを返す
+    /// Excel のインスタンスが複数起動していれば例外をスローする。
     /// </summary>
-    /// <returns>複数起動しているなら true</returns>
-    public static bool IsMultipleExcelInstancesRunning()
+    public static void CheckMultipleInstances()
     {
         Process[] excelProcesses = Process.GetProcessesByName("EXCEL");
-        return excelProcesses.Length > 1;
+        if (excelProcesses.Length > 1)
+        {
+            var msg = "Excel のインスタンスが複数起動しています。\n"
+                + "起動するインスタンスは1個までにしてください。\n"
+                + "マクロの抽出を中止します。";
+            throw new Exception(msg);
+        }
     }
 
     /// <summary>
     /// 起動中または新規の Excel インスタンスを返す
     /// </summary>
-    /// <returns>Excel Application</returns>
-    public static Excel.Application GetExcelInstance()
+    /// <returns>Excel Application app, bool isRunning</returns>
+    public static (Excel.Application, bool) GetExcelInstance()
     {
         Excel.Application app;
+        bool isRunning = true;
         try
         {
             app = (Excel.Application)Marshal2.GetActiveObject("Excel.Application");
@@ -96,7 +93,30 @@ public class ExcelMacroIO
         catch (COMException)
         {
             app = new Excel.Application();
+            isRunning = false;
         }
-        return app;
+        return (app, isRunning);
+    }
+
+    /// <summary>
+    /// ブック名を指定してすでに開いていればそれを、さもなくば開いて返す。
+    /// </summary>
+    /// <returns>Excel.Workbook wb, bool isOpen</returns>
+    public static (Excel.Workbook, bool) GetOrOpenWorkbook(Excel.Application app, string path)
+    {
+        string name = Path.GetFileName(path);
+        Excel.Workbook wb;
+        bool isOpen = true;
+        try
+        {
+            wb = app.Workbooks[name];
+        }
+        catch (COMException)
+        {
+            // Open メソッドに絶対パスを渡さないとエラーになる (原因不明)
+            wb = app.Workbooks.Open(Path.GetFullPath(path));
+            isOpen = false;
+        }
+        return (wb, isOpen);
     }
 }
