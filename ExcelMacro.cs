@@ -239,10 +239,12 @@ public class ExcelMacroIO
                 {
                     // モジュールが存在しない場合は何もしない。
                 }
-                // モジュールをインポートする。
+                // VBA マクロをブックにインポートする。
                 wb.VBProject.VBComponents.Import(basFile);
             }
         }
+        // Excel ブックを保存する。
+        wb.Save();
 
         // 後処理
         Close(app, wb, isRunning, isOpen);
