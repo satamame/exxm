@@ -8,23 +8,27 @@ namespace ExcelMacro;
 
 public class ExcelMacroIO
 {
-    /* 指定したディレクトリから Excel ブックを探してファイル名のリストを返す */
+    /// <summary>
+    /// 指定したディレクトリから Excel ブックを探してファイル名のリストを返す。
+    /// </summary>
+    /// <param name="dir"></param>
+    /// <param name="exclude"></param>
+    /// <param name="ext"></param>
+    /// <returns></returns>
     public static List<string> FindExcelFiles(
-        string dir, bool recursive, List<string> exclude, List<string> ext)
+        string dir, List<string> exclude, List<string> ext)
     {
         var files = new List<string>();
-        var searchOption = recursive
-            ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
 
         foreach (var e in ext)
         {
             if (e.StartsWith('.'))
             {
-                files.AddRange(Directory.GetFiles(dir, $"*{e}", searchOption));
+                files.AddRange(Directory.GetFiles(dir, $"*{e}"));
             }
             else
             {
-                files.AddRange(Directory.GetFiles(dir, $"*.{e}", searchOption));
+                files.AddRange(Directory.GetFiles(dir, $"*.{e}"));
             }
         }
 
@@ -38,29 +42,61 @@ public class ExcelMacroIO
         return files;
     }
 
-    public static bool ExtractMacros(string path, bool clean)
+    public static void ExtractMacros(string filePath, string macrosDir, bool clean)
     {
         CheckMultipleInstances();
         (var app, var isRunning) = GetExcelInstance();
-        (var wb, var isOpen) = GetOrOpenWorkbook(app, path);
+        (var wb, var isOpen) = GetOrOpenWorkbook(app, filePath);
 
         // TODO: エラーハンドリングをして Excel のインスタンスが残らないようにする
+        // TODO: clean オプションを実装する
 
         // wb のシート数を取得
         int sheetCount = wb.Sheets.Count;
         Console.WriteLine($"シート数: {sheetCount}");
+
+        // 保存先のディレクトリがなければ作成する。
+        // e.g. "Full/path/to/macros/Book1.xlsm"
+        string destDir = Path.Combine(
+            Path.GetFullPath(macrosDir), Path.GetFileName(filePath));
+        Directory.CreateDirectory(destDir);
 
         var vbaProject = wb.VBProject;
         VBComponents vbaComponents = vbaProject.VBComponents;
 
         foreach (VBComponent component in vbaComponents)
         {
-            Console.WriteLine(component.Name);
+            string componentName = component.Name;
+            if (component.Type == vbext_ComponentType.vbext_ct_MSForm)
+            {
+                // フォームコンポーネントは無視する。
+                continue;
+            }
+            else if (component.Type == vbext_ComponentType.vbext_ct_StdModule)
+            {
+                // 標準モジュール
+                Console.WriteLine(componentName);
+                component.Export(Path.Combine(destDir, $"{componentName}.bas"));
+            }
+            else if (component.Type == vbext_ComponentType.vbext_ct_ClassModule)
+            {
+                // クラスモジュールは無視する。
+                continue;
+            }
+            else if (component.Type == vbext_ComponentType.vbext_ct_Document)
+            {
+                // ドキュメント（シートなど）
+                string? sheetName = component.Properties.Item("Name").Value.ToString();
+                if (sheetName != null)
+                {
+                    componentName = $"{componentName} ({sheetName})";
+                }
+                component.Export(Path.Combine(destDir, $"{componentName}.bas"));
+            }
         }
 
         if (!isOpen) wb.Close();
         if (!isRunning) app.Quit();
-        return true;
     }
 
     /// <summary>
@@ -99,7 +135,7 @@ public class ExcelMacroIO
     }
 
     /// <summary>
-    /// ブック名を指定してすでに開いていればそれを、さもなくば開いて返す。
+    /// ブックがすでに開いていればそれを、さもなくば新たに開いて返す。
     /// </summary>
     /// <returns>Excel.Workbook wb, bool isOpen</returns>
     public static (Excel.Workbook, bool) GetOrOpenWorkbook(Excel.Application app, string path)

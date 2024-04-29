@@ -16,7 +16,6 @@ using (var reader = new StreamReader("settings.yml"))
 }
 
 Console.WriteLine($"Excel Dir: {settings.Excel.Dir}");
-Console.WriteLine($"Excel Recursive: {settings.Excel.Recursive}");
 Console.WriteLine($"Excel Exclude: {string.Join(", ", settings.Excel.Exclude)}");
 Console.WriteLine($"Excel Ext: {string.Join(", ", settings.Excel.Ext)}");
 Console.WriteLine($"Macros Dir: {settings.Macros.Dir}");
@@ -31,11 +30,15 @@ if (fromExcel && toExcel)
     Console.WriteLine("エラー: --from-excel と --to-excel は同時に指定できません。");
     return;
 }
+if (!fromExcel && !toExcel)
+{
+    Console.WriteLine("エラー: --from-excel または --to-excel を指定してください。");
+    return;
+}
 
+/* 対象となる Excel ファイルを取得する */
 var files = ExcelMacroIO.FindExcelFiles(
-    settings.Excel.Dir, settings.Excel.Recursive, settings.Excel.Exclude,
-    settings.Excel.Ext
-);
+    settings.Excel.Dir, settings.Excel.Exclude, settings.Excel.Ext);
 
 if (fromExcel)
 {
@@ -43,7 +46,7 @@ if (fromExcel)
     {
         try
         {
-            ExcelMacroIO.ExtractMacros(f, clean);
+            ExcelMacroIO.ExtractMacros(f, settings.Macros.Dir, clean);
         }
         catch (Exception e)
         {
