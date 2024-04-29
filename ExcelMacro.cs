@@ -2,7 +2,6 @@
 using Microsoft.Vbe.Interop;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using Marshal;
 
 namespace ExcelMacro;
 
@@ -95,8 +94,23 @@ public class ExcelMacroIO
             }
         }
 
-        if (!isOpen) wb.Close();
-        if (!isRunning) app.Quit();
+        // TODO: この処理を関数にする
+#pragma warning disable CA1416
+        foreach (Excel.Worksheet ws in wb.Worksheets)
+        {
+            _ = Marshal.ReleaseComObject(ws);
+        }
+        if (!isOpen)
+        {
+            wb.Close(false);
+        }
+        _ = Marshal.ReleaseComObject(wb);
+        if (!isRunning)
+        {
+            app.Quit();
+        }
+        _ = Marshal.ReleaseComObject(app);
+#pragma warning restore CA1416
     }
 
     /// <summary>
@@ -105,6 +119,9 @@ public class ExcelMacroIO
     public static void CheckMultipleInstances()
     {
         Process[] excelProcesses = Process.GetProcessesByName("EXCEL");
+
+        Console.WriteLine($"Excel のインスタンス数: {excelProcesses.Length}");
+
         if (excelProcesses.Length > 1)
         {
             var msg = "Excel のインスタンスが複数起動しています。\n"
@@ -124,7 +141,8 @@ public class ExcelMacroIO
         bool isRunning = true;
         try
         {
-            app = (Excel.Application)Marshal2.GetActiveObject("Excel.Application");
+            app = (Excel.Application)Marshal2.Marshal2.GetActiveObject(
+                "Excel.Application");
         }
         catch (COMException)
         {

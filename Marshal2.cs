@@ -1,6 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace Marshal;
+namespace Marshal2;
 
 /* 参考: https://qiita.com/SilkyFowl/items/e57f1fb165cf2ea33092 */
 
