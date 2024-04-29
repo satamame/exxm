@@ -15,10 +15,10 @@ using (var reader = new StreamReader("settings.yml"))
     settings = deserializer.Deserialize<AppSettings>(reader);
 }
 
-Console.WriteLine($"Excel Dir: {settings.Excel.Dir}");
-Console.WriteLine($"Excel Exclude: {string.Join(", ", settings.Excel.Exclude)}");
-Console.WriteLine($"Excel Ext: {string.Join(", ", settings.Excel.Ext)}");
-Console.WriteLine($"Macros Dir: {settings.Macros.Dir}");
+//Console.WriteLine($"Excel Dir: {settings.Excel.Dir}");
+//Console.WriteLine($"Excel Exclude: {string.Join(", ", settings.Excel.Exclude)}");
+//Console.WriteLine($"Excel Ext: {string.Join(", ", settings.Excel.Ext)}");
+//Console.WriteLine($"Macros Dir: {settings.Macros.Dir}");
 
 /* コマンドライン引数を取得する */
 bool fromExcel = args.Contains("--from-excel");
@@ -47,6 +47,21 @@ if (fromExcel)
         try
         {
             ExcelMacroIO.ExtractMacros(f, settings.Macros.Dir, clean);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"エラー: {e.Message}");
+            break;
+        }
+    }
+}
+else if (toExcel)
+{
+    foreach (var f in files)
+    {
+        try
+        {
+            ExcelMacroIO.WriteBackMacros(f, settings.Macros.Dir, clean);
         }
         catch (Exception e)
         {
