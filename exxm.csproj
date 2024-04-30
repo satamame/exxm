@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <FileVersion>0.0.2.0</FileVersion>
-    <Copyright>©2024 satamame.com</Copyright>
+    <Copyright>© 2024 satamame.com</Copyright>
   </PropertyGroup>
 
   <ItemGroup>
