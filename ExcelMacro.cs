@@ -1,8 +1,8 @@
-﻿using Excel = Microsoft.Office.Interop.Excel;
-using Microsoft.Vbe.Interop;
+﻿using System.Text;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text;
+using Excel = Microsoft.Office.Interop.Excel;
+using Microsoft.Vbe.Interop;
 
 namespace ExcelMacro;
 
@@ -49,13 +49,11 @@ public class ExcelMacroIO
     {
         Process[] excelProcesses = Process.GetProcessesByName("EXCEL");
 
-        //Console.WriteLine($"Excel のインスタンス数: {excelProcesses.Length}");
-
         if (excelProcesses.Length > 1)
         {
             var msg = "Excel のインスタンスが複数起動しています。\n"
                 + "起動するインスタンスは1個までにしてください。\n"
-                + "マクロの抽出を中止します。";
+                + "処理を中止します。";
             throw new Exception(msg);
         }
     }
@@ -76,9 +74,9 @@ public class ExcelMacroIO
         catch (COMException)
         {
             app = new Excel.Application();
-            app.Visible = false;
             isRunning = false;
         }
+        app.Visible = false;
         return (app, isRunning);
     }
 
@@ -86,7 +84,8 @@ public class ExcelMacroIO
     /// ブックがすでに開いていればそれを、さもなくば新たに開いて返す。
     /// </summary>
     /// <returns>Excel.Workbook wb, bool isOpen</returns>
-    public static (Excel.Workbook, bool) GetOrOpenWorkbook(Excel.Application app, string path)
+    public static (Excel.Workbook, bool) GetOrOpenWorkbook(
+        Excel.Application app, string path)
     {
         string name = Path.GetFileName(path);
         Excel.Workbook wb;
@@ -121,6 +120,10 @@ public class ExcelMacroIO
         {
             app.Quit();
         }
+        else
+        {
+            app.Visible = true;
+        }
         _ = Marshal.ReleaseComObject(app);
 #pragma warning restore CA1416
     }
@@ -133,10 +136,6 @@ public class ExcelMacroIO
 
         // TODO: エラーハンドリングをして Excel のインスタンスが残らないようにする
         // TODO: clean オプションを実装する
-
-        // wb のシート数を取得
-        //int sheetCount = wb.Sheets.Count;
-        //Console.WriteLine($"シート数: {sheetCount}");
 
         // 保存先のディレクトリがなければ作成する。
         // e.g. "Full/path/to/macros/Book1.xlsm"
@@ -206,7 +205,8 @@ public class ExcelMacroIO
         {
             // basFile に書かれた Attribute VB_Name からコンポーネント名を取得する。
             string componentName = "";
-            using (var sr = new StreamReader(basFile))
+            Encoding shiftJisEncoding = Encoding.GetEncoding("shift_jis");
+            using (var sr = new StreamReader(basFile, shiftJisEncoding))
             {
                 string? line;
                 while ((line = sr.ReadLine()) != null)
@@ -222,14 +222,14 @@ public class ExcelMacroIO
             VBComponents vbaComponents = wb.VBProject.VBComponents;
             VBComponent? component = vbaComponents.Item(componentName);
 
-            if (component.Type == vbext_ComponentType.vbext_ct_Document)
+            if (component?.Type == vbext_ComponentType.vbext_ct_Document)
             {
-                // このコンポーネントはシートまたはブックに関連付けられています。
+                // このコンポーネントはシートまたはブックに関連付けられている。
                 OverwriteDocumentMacro(component, basFile);
             }
             else
             {
-                // このコンポーネントはシートまたはブックに関連付けられていません。
+                // このコンポーネントはシートまたはブックに関連付けられていない。
                 // 既存のモジュールを削除する。
                 try
                 {
@@ -260,9 +260,6 @@ public class ExcelMacroIO
             codeModule.DeleteLines(1, lineCount);
         }
 
-        // エンコーディング プロバイダーを登録する
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-
         // Shift JIS エンコーディングでファイルの内容を取得する
         Encoding shiftJisEncoding = Encoding.GetEncoding("shift_jis");
         var lines = File.ReadAllLines(basFile, shiftJisEncoding);
@@ -280,8 +277,7 @@ public class ExcelMacroIO
                     || trimmedLine.StartsWith("BEGIN")
                     || trimmedLine.StartsWith("MultiUse")
                     || trimmedLine.StartsWith("END")
-                    || trimmedLine.StartsWith("Attribute")
-                    || string.IsNullOrWhiteSpace(trimmedLine))
+                    || trimmedLine.StartsWith("Attribute"))
                 {
                     continue;
                 }

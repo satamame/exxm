@@ -1,8 +1,11 @@
-﻿using System;
+﻿using System.Text;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
-using Settings;
 using ExcelMacro;
+using Settings;
+
+// エンコーディング プロバイダーを登録する
+Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 /* 設定ファイルを読込む */
 AppSettings settings;
@@ -10,15 +13,10 @@ var deserializer = new DeserializerBuilder()
     .WithNamingConvention(CamelCaseNamingConvention.Instance)
     .Build();
 
-using (var reader = new StreamReader("settings.yml"))
+using (var reader = new StreamReader("exxm-conf.yml"))
 {
     settings = deserializer.Deserialize<AppSettings>(reader);
 }
-
-//Console.WriteLine($"Excel Dir: {settings.Excel.Dir}");
-//Console.WriteLine($"Excel Exclude: {string.Join(", ", settings.Excel.Exclude)}");
-//Console.WriteLine($"Excel Ext: {string.Join(", ", settings.Excel.Ext)}");
-//Console.WriteLine($"Macros Dir: {settings.Macros.Dir}");
 
 /* コマンドライン引数を取得する */
 bool fromExcel = args.Contains("--from-excel");
@@ -42,6 +40,7 @@ var files = ExcelMacroIO.FindExcelFiles(
 
 if (fromExcel)
 {
+    /* Excel ブックから VBA マクロを抽出する */
     foreach (var f in files)
     {
         try
@@ -54,9 +53,11 @@ if (fromExcel)
             break;
         }
     }
+    Console.WriteLine("Excel ブックから VBA マクロを抽出しました。");
 }
 else if (toExcel)
 {
+    /* Excel ブックへ VBA マクロを書き戻す */
     foreach (var f in files)
     {
         try
@@ -69,7 +70,5 @@ else if (toExcel)
             break;
         }
     }
+    Console.WriteLine("Excel ブックへ VBA マクロを書き戻しました。");
 }
-
-Console.WriteLine("何かキーを押して続行してください...");
-Console.ReadLine();
