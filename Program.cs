@@ -53,7 +53,6 @@ if (fromExcel)
             break;
         }
     }
-    Console.WriteLine("Excel ブックから VBA マクロを抽出しました。");
 }
 else if (toExcel)
 {
@@ -70,5 +69,5 @@ else if (toExcel)
             break;
         }
     }
-    Console.WriteLine("Excel ブックへ VBA マクロを書き戻しました。");
 }
+Console.WriteLine("処理が完了しました。");

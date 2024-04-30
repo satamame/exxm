@@ -11,9 +11,9 @@ public class ExcelMacroIO
     /// <summary>
     /// 指定したディレクトリから Excel ブックを探してファイル名のリストを返す。
     /// </summary>
-    /// <param name="dir"></param>
-    /// <param name="exclude"></param>
-    /// <param name="ext"></param>
+    /// <param name="dir">Excel ブックがあるディレクトリ</param>
+    /// <param name="exclude">除外するファイル名のリスト</param>
+    /// <param name="ext">対象とする拡張子</param>
     /// <returns></returns>
     public static List<string> FindExcelFiles(
         string dir, List<string> exclude, List<string> ext)
@@ -81,18 +81,20 @@ public class ExcelMacroIO
     }
 
     /// <summary>
-    /// ブックがすでに開いていればそれを、さもなくば新たに開いて返す。
+    /// Excel ブックがすでに開いていればそれを、さもなくば新たに開いて返す。
     /// </summary>
+    /// <param name="app">ブックを開く Excel インスタンス</param>
+    /// <param name="path">開きたい Excel ブックのパス</param>
     /// <returns>Excel.Workbook wb, bool isOpen</returns>
     public static (Excel.Workbook, bool) GetOrOpenWorkbook(
         Excel.Application app, string path)
     {
-        string name = Path.GetFileName(path);
+        string bookName = Path.GetFileName(path);
         Excel.Workbook wb;
         bool isOpen = true;
         try
         {
-            wb = app.Workbooks[name];
+            wb = app.Workbooks[bookName];
         }
         catch (COMException)
         {
@@ -103,97 +105,163 @@ public class ExcelMacroIO
         return (wb, isOpen);
     }
 
-    public static void Close(
-        Excel.Application app, Excel.Workbook wb, bool isRunning, bool isOpen)
+    public static void ReleaseBook(Excel.Workbook wb, bool isOpen)
     {
-#pragma warning disable CA1416
+        // シートをすべて解放する
         foreach (Excel.Worksheet ws in wb.Worksheets)
         {
             _ = Marshal.ReleaseComObject(ws);
         }
+
+        // ブックが元々開いていたのでなければ閉じる
         if (!isOpen)
         {
             wb.Close(false);
         }
+        // ブックを解放する
         _ = Marshal.ReleaseComObject(wb);
+    }
+
+    public static void ReleaseApp(Excel.Application app, bool isRunning)
+    {
+        // Visible に戻す
+        app.Visible = true;
+
+        // インスタンスが元々起動していたのでなければ終了する
         if (!isRunning)
         {
             app.Quit();
         }
-        else
-        {
-            app.Visible = true;
-        }
+        // インスタンスを解放する
         _ = Marshal.ReleaseComObject(app);
-#pragma warning restore CA1416
     }
 
+    /// <summary>
+    /// Excel アプリケーション、ブックを解放する。
+    /// </summary>
+    /// <param name="app">終了する Excel インスタンス</param>
+    /// <param name="wb">閉じる Excel ブック</param>
+    /// <param name="isRunning">インスタンスが元々起動していたか</param>
+    /// <param name="isOpen">ブックが元々開いていたか</param>
+    public static void Release(
+        Excel.Application app, Excel.Workbook wb, bool isRunning, bool isOpen)
+    {
+        ReleaseBook(wb, isOpen);
+        ReleaseApp(app, isRunning);
+    }
+
+    /// <summary>
+    /// Excel ブックから VBA マクロを抽出し .bas ファイルとして保存する。
+    /// </summary>
+    /// <param name="filePath">Excel ブックのパス</param>
+    /// <param name="macrosDir">.bas ファイルの保存先ディレクトリ</param>
+    /// <param name="clean">この引数は未使用です</param>
     public static void ExtractMacros(string filePath, string macrosDir, bool clean)
     {
         CheckMultipleInstances();
         (var app, var isRunning) = GetExcelInstance();
-        (var wb, var isOpen) = GetOrOpenWorkbook(app, filePath);
 
-        // TODO: エラーハンドリングをして Excel のインスタンスが残らないようにする
+        Excel.Workbook wb;
+        bool isOpen;
+        try
+        {
+            (wb, isOpen) = GetOrOpenWorkbook(app, filePath);
+        }
+        catch (Exception)
+        {
+            ReleaseApp(app, isRunning);
+            throw;
+        }
+        string wbName = Path.GetFileName(filePath);
+        Console.WriteLine($"{wbName} の処理を開始しました。");
+
         // TODO: clean オプションを実装する
 
         // 保存先のディレクトリがなければ作成する。
         // e.g. "Full/path/to/macros/Book1.xlsm"
-        string destDir = Path.Combine(
-            Path.GetFullPath(macrosDir), Path.GetFileName(filePath));
+        string destDir = Path.Combine(Path.GetFullPath(macrosDir), wbName);
         Directory.CreateDirectory(destDir);
 
         VBComponents vbaComponents = wb.VBProject.VBComponents;
 
-        foreach (VBComponent component in vbaComponents)
+        try
         {
-            string componentName = component.Name;
-            if (component.Type == vbext_ComponentType.vbext_ct_MSForm)
+            foreach (VBComponent component in vbaComponents)
             {
-                // フォームコンポーネントは無視する。
-                continue;
-            }
-            else if (component.Type == vbext_ComponentType.vbext_ct_StdModule)
-            {
-                // 標準モジュール
-                //Console.WriteLine(componentName);
-                component.Export(Path.Combine(destDir, $"{componentName}.bas"));
-            }
-            else if (component.Type == vbext_ComponentType.vbext_ct_ClassModule)
-            {
-                // クラスモジュールは無視する。
-                continue;
-            }
-            else if (component.Type == vbext_ComponentType.vbext_ct_Document)
-            {
-                // ドキュメント（シートなど）
-                string? sheetName = component.Properties.Item("Name").Value.ToString();
-                if (sheetName != null)
+                string componentName = component.Name;
+                if (component.Type == vbext_ComponentType.vbext_ct_MSForm)
                 {
-                    componentName = $"{componentName} ({sheetName})";
+                    // フォームコンポーネントは無視する。
+                    continue;
                 }
-                component.Export(Path.Combine(destDir, $"{componentName}.bas"));
+                else if (component.Type == vbext_ComponentType.vbext_ct_StdModule)
+                {
+                    // 標準モジュール
+                    component.Export(Path.Combine(destDir, $"{componentName}.bas"));
+                    Console.WriteLine($"{componentName} を抽出しました。");
+                }
+                else if (component.Type == vbext_ComponentType.vbext_ct_ClassModule)
+                {
+                    // クラスモジュールは無視する。
+                    continue;
+                }
+                else if (component.Type == vbext_ComponentType.vbext_ct_Document)
+                {
+                    // ドキュメント（シートなど）
+                    string? sheetName = component.Properties.Item("Name").Value.ToString();
+                    if (sheetName != null)
+                    {
+                        componentName = $"{componentName} ({sheetName})";
+                    }
+                    component.Export(Path.Combine(destDir, $"{componentName}.bas"));
+                    Console.WriteLine($"{componentName} を抽出しました。");
+                }
             }
         }
-
-        // 後処理
-        Close(app, wb, isRunning, isOpen);
+        catch (COMException)
+        {
+            throw;
+        }
+        finally
+        {
+            // 例外が起きても起きなくてもブックとアプリケーションを解放する。
+            Release(app, wb, isRunning, isOpen);
+        }
     }
 
+    /// <summary>
+    /// Excel ブックへ VBA マクロを書き戻す。
+    /// </summary>
+    /// <param name="filePath">Excel ブックのパス</param>
+    /// <param name="macrosDir">.bas ファイルの保存先ディレクトリ</param>
+    /// <param name="clean">この引数は未使用です</param>
+    /// <exception cref="DirectoryNotFoundException"></exception>
     public static void WriteBackMacros(string filePath, string macrosDir, bool clean)
     {
         CheckMultipleInstances();
         (var app, var isRunning) = GetExcelInstance();
-        (var wb, var isOpen) = GetOrOpenWorkbook(app, filePath);
+
+        Excel.Workbook wb;
+        bool isOpen;
+        try
+        {
+            (wb, isOpen) = GetOrOpenWorkbook(app, filePath);
+        }
+        catch (Exception)
+        {
+            ReleaseApp(app, isRunning);
+            throw;
+        }
+        string wbName = Path.GetFileName(filePath);
+        Console.WriteLine($"{wbName} の処理を開始しました。");
 
         // .bas ファイルが保存されているディレクトリ
-        var basDir = Path.Combine(
-            Path.GetFullPath(macrosDir), Path.GetFileName(filePath));
+        var basDir = Path.Combine(Path.GetFullPath(macrosDir), wbName);
 
         // ディレクトリが存在しなければ例外をスローする。
         if (!Directory.Exists(basDir))
         {
-            Close(app, wb, isRunning, isOpen);
+            Release(app, wb, isRunning, isOpen);
             throw new DirectoryNotFoundException(
                 $"ディレクトリが見つかりません: {basDir}");
         }
@@ -220,34 +288,42 @@ public class ExcelMacroIO
             }
 
             VBComponents vbaComponents = wb.VBProject.VBComponents;
-            VBComponent? component = vbaComponents.Item(componentName);
 
-            if (component?.Type == vbext_ComponentType.vbext_ct_Document)
+            // 書き戻し先のコンポーネント
+            VBComponent? component;
+            try
+            {
+                component = vbaComponents.Item(componentName);
+            }
+            catch (IndexOutOfRangeException)
+            {
+                component = null;
+            }
+
+            if (component != null && component.Type == vbext_ComponentType.vbext_ct_Document)
             {
                 // このコンポーネントはシートまたはブックに関連付けられている。
+                // ドキュメントのマクロを上書きする。
                 OverwriteDocumentMacro(component, basFile);
             }
             else
             {
                 // このコンポーネントはシートまたはブックに関連付けられていない。
-                // 既存のモジュールを削除する。
-                try
+                if (component != null)
                 {
+                    // 既存のモジュールを削除する。
                     vbaComponents.Remove(vbaComponents.Item(componentName));
-                }
-                catch (COMException)
-                {
-                    // モジュールが存在しない場合は何もしない。
                 }
                 // VBA マクロをブックにインポートする。
                 wb.VBProject.VBComponents.Import(basFile);
             }
+            Console.WriteLine($"{componentName} を書き戻しました。");
         }
         // Excel ブックを保存する。
         wb.Save();
 
-        // 後処理
-        Close(app, wb, isRunning, isOpen);
+        // ブックとアプリケーションを解放する。
+        Release(app, wb, isRunning, isOpen);
     }
 
     public static void OverwriteDocumentMacro(VBComponent component, string basFile)
