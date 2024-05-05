@@ -1,5 +1,7 @@
 ﻿namespace Settings;
 
+// TODO: バリデーションのメソッドを実装する
+
 public class AppSettings
 {
     public ExcelSettings Excel { get; set; } = new ExcelSettings();
@@ -16,4 +18,8 @@ public class ExcelSettings
 public class MacrosSettings
 {
     public string Dir { get; set; } = "macros";
+    // ブックごとのディレクトリの名前に拡張子をつけるかどうか
+    // 拡張子違いのブックがある場合は true にする
+    public bool BookDirExt { get; set; } = false;
+    public string Encoding { get; set; } = "utf-8";
 }

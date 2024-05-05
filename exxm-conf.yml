@@ -8,3 +8,5 @@ excel:
 # VBA マクロファイルの抽出先
 macros:
   dir: macros
+  bookDirExt: false
+  encoding: utf-8

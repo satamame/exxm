@@ -7,12 +7,11 @@ using Settings;
 // エンコーディング プロバイダーを登録する
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-/* 設定ファイルを読込む */
+/* 設定を読込む */
 AppSettings settings;
 var deserializer = new DeserializerBuilder()
     .WithNamingConvention(CamelCaseNamingConvention.Instance)
     .Build();
-
 using (var reader = new StreamReader("exxm-conf.yml"))
 {
     settings = deserializer.Deserialize<AppSettings>(reader);
@@ -34,22 +33,22 @@ if (!fromExcel && !toExcel)
     return;
 }
 
-/* 対象となる Excel ファイルを取得する */
-var files = ExcelMacroIO.FindExcelFiles(
-    settings.Excel.Dir, settings.Excel.Exclude, settings.Excel.Ext);
+var macroIO = new MacroIO(settings);
+var aborted = false;
 
 if (fromExcel)
 {
     /* Excel ブックから VBA マクロを抽出する */
-    foreach (var f in files)
+    foreach (var f in macroIO.Files)
     {
         try
         {
-            ExcelMacroIO.ExtractMacros(f, settings.Macros.Dir, clean);
+            macroIO.ExtractMacros(f, clean);
         }
         catch (Exception e)
         {
             Console.WriteLine($"エラー: {e.Message}");
+            aborted = true;
             break;
         }
     }
@@ -57,17 +56,24 @@ if (fromExcel)
 else if (toExcel)
 {
     /* Excel ブックへ VBA マクロを書き戻す */
-    foreach (var f in files)
+    foreach (var f in macroIO.Files)
     {
         try
         {
-            ExcelMacroIO.WriteBackMacros(f, settings.Macros.Dir, clean);
+            macroIO.WriteBackMacros(f, clean);
         }
         catch (Exception e)
         {
             Console.WriteLine($"エラー: {e.Message}");
+            aborted = true;
             break;
         }
     }
+}
+
+if (aborted)
+{
+    Console.WriteLine("処理が中断されました。");
+    return;
 }
 Console.WriteLine("処理が完了しました。");
