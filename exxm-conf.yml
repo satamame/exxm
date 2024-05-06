@@ -8,5 +8,9 @@ excel:
 # VBA マクロファイルの抽出先
 macros:
   dir: macros
+  # ブックごとのディレクトリの名前に拡張子を含めるか。
+  # 拡張子のみ異なるブックがある場合は true にする。
   bookDirExt: false
+  # .bas ファイルのエンコーディング。
+  # 有効な値は "uft-8" または "shift_jis"。
   encoding: utf-8

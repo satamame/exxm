@@ -24,56 +24,57 @@ bool clean = args.Contains("--clean");
 
 if (fromExcel && toExcel)
 {
-    Console.WriteLine("エラー: --from-excel と --to-excel は同時に指定できません。");
+    Console.WriteLine("" +
+        "エラー: --from-excel と --to-excel は同時に指定できません。");
     return;
 }
 if (!fromExcel && !toExcel)
 {
-    Console.WriteLine("エラー: --from-excel または --to-excel を指定してください。");
+    Console.WriteLine(
+        "エラー: --from-excel または --to-excel を指定してください。");
     return;
 }
 
 var macroIO = new MacroIO(settings);
 var aborted = false;
 
-if (fromExcel)
+if (macroIO.WbFiles.Count == 0)
+{
+    Console.WriteLine("対象となる Excel ブックがありません。");
+    aborted = true;
+}
+else if (fromExcel)
 {
     /* Excel ブックから VBA マクロを抽出する */
-    foreach (var f in macroIO.Files)
+    try
     {
-        try
-        {
-            macroIO.ExtractMacros(f, clean);
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"エラー: {e.Message}");
-            aborted = true;
-            break;
-        }
+        macroIO.ExtractMacros(clean);
+    }
+    catch (Exception e)
+    {
+        Console.WriteLine($"エラー: {e.Message}");
+        aborted = true;
     }
 }
 else if (toExcel)
 {
     /* Excel ブックへ VBA マクロを書き戻す */
-    foreach (var f in macroIO.Files)
+    try
     {
-        try
-        {
-            macroIO.WriteBackMacros(f, clean);
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"エラー: {e.Message}");
-            aborted = true;
-            break;
-        }
+        macroIO.WriteMacros(clean);
+    }
+    catch (Exception e)
+    {
+        Console.WriteLine($"エラー: {e.Message}");
+        aborted = true;
     }
 }
 
 if (aborted)
 {
     Console.WriteLine("処理が中断されました。");
-    return;
 }
-Console.WriteLine("処理が完了しました。");
+else
+{
+    Console.WriteLine("処理が完了しました。");
+}

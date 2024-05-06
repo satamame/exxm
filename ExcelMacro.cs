@@ -9,12 +9,12 @@ namespace ExcelMacro;
 
 public class MacroIO
 {
-    public Excel.Application? App { get; set; } = null;
-    public Excel.Workbook? Wb { get; set; } = null;
-    public List<string> Files { get; set; } = [];
-    public AppSettings Settings { get; set; }
+    private AppSettings Settings { get; set; }
+    private Excel.Application? App { get; set; } = null;
+    private Excel.Workbook? Wb { get; set; } = null;
     private bool AppRunning = false;
     private bool WbOpen = false;
+    public List<string> WbFiles { get; set; } = [];
 
     /// <summary>
     /// コンストラクタ
@@ -35,14 +35,14 @@ public class MacroIO
         }
 
         // 対象となる Excel ブックのファイル名を取得する。
-        this.Files = FindExcelFiles();
+        this.WbFiles = FindWbFiles();
     }
 
     /// <summary>
     /// 対象となる Excel ブックのファイル名のリストを返す関数
     /// </summary>
     /// <returns>ファイル名のリスト</returns>
-    protected List<string> FindExcelFiles()
+    protected List<string> FindWbFiles()
     {
         var files = new List<string>();
         var dir = this.Settings.Excel.Dir;
@@ -71,6 +71,9 @@ public class MacroIO
     {
         Process[] excelProcesses = Process.GetProcessesByName("EXCEL");
 
+        // DEBUG: 起動中の Excel インスタンスの数を表示する
+        Console.WriteLine($"Excel のインスタンス数: {excelProcesses.Length}");
+
         if (excelProcesses.Length > 1)
         {
             var msg = "Excel のインスタンスが複数起動しています。\n"
@@ -81,60 +84,57 @@ public class MacroIO
     }
 
     /// <summary>
-    /// 起動中または新規の Excel インスタンスを返す関数
+    /// 起動した (またはすでに起動している) Excel インスタンスを保持する関数
     /// </summary>
-    /// <returns>Excel Application app, bool appRunning</returns>
-    protected static (Excel.Application, bool) GetExcelInstance()
+    protected void SetupApp()
     {
-        Excel.Application app;
-        bool appRunning = true;
         try
         {
-            app = (Excel.Application)Marshal2.Marshal2.GetActiveObject(
+            this.App = (Excel.Application)Marshal2.Marshal2.GetActiveObject(
                 "Excel.Application");
+            this.AppRunning = true;
         }
         catch (COMException)
         {
-            app = new Excel.Application();
-            appRunning = false;
+            this.App = new Excel.Application();
+            this.AppRunning = false;
         }
-        app.Visible = false;
-        return (app, appRunning);
+        this.App.Visible = false;
     }
 
     /// <summary>
-    /// Excel ブックがすでに開いていればそれを、さもなくば新たに開いて返す関数
+    /// 開いた (またはすでに開いている) Excel ブックを保持する関数
     /// </summary>
-    /// <param name="app">ブックを開く Excel インスタンス</param>
-    /// <param name="path">開きたい Excel ブックのパス</param>
-    /// <returns>Excel.Workbook wb, bool wbOpen</returns>
-    protected static (Excel.Workbook, bool) GetOrOpenWorkbook(
-        Excel.Application app, string path)
+    /// <param name="path">Excel ブックのパス</param>
+    protected void SetupWb(string path)
     {
-        string bookName = Path.GetFileName(path);
-        Excel.Workbook wb;
-        bool wbOpen = true;
+        if (this.App == null)
+        {
+            throw new Exception("Excel アプリケーションを起動できません。");
+        }
+
+        string wbName = Path.GetFileName(path);
         try
         {
-            wb = app.Workbooks[bookName];
+            this.Wb = this.App.Workbooks[wbName];
+            this.WbOpen = true;
         }
         catch (COMException)
         {
             // Open メソッドに絶対パスを渡さないとエラーになる (原因不明)
-            wb = app.Workbooks.Open(Path.GetFullPath(path));
-            wbOpen = false;
+            this.Wb = this.App.Workbooks.Open(Path.GetFullPath(path));
+            this.WbOpen = false;
         }
-        return (wb, wbOpen);
     }
 
-    protected void ReleaseBook()
+    protected void ReleaseWb()
     {
         if (this.Wb == null) return;
 
         // シートをすべて解放する
         foreach (Excel.Worksheet ws in this.Wb.Worksheets)
         {
-            _ = Marshal.ReleaseComObject(ws);
+            Marshal.ReleaseComObject(ws);
         }
 
         // ブックが元々開いていたのでなければ閉じる。
@@ -143,7 +143,7 @@ public class MacroIO
             this.Wb.Close(false);
         }
         // ブックを解放する。
-        _ = Marshal.ReleaseComObject(this.Wb);
+        Marshal.ReleaseComObject(this.Wb);
         this.Wb = null;
     }
 
@@ -161,18 +161,8 @@ public class MacroIO
             this.App.Visible = true;
         }
 
-        // インスタンスを解放する
-        _ = Marshal.ReleaseComObject(this.App);
+        Marshal.ReleaseComObject(this.App);
         this.App = null;
-    }
-
-    /// <summary>
-    /// Excel アプリケーション、ブックを解放する関数
-    /// </summary>
-    protected void Release()
-    {
-        this.ReleaseBook();
-        this.ReleaseApp();
     }
 
     /// <summary>
@@ -180,20 +170,15 @@ public class MacroIO
     /// </summary>
     /// <param name="filePath">Excel ブックのパス</param>
     /// <param name="clean">この引数は未使用です</param>
-    public void ExtractMacros(string filePath, bool clean)
+    protected void ExtractMacrosFromWb(string filePath, bool clean)
     {
-        MacroIO.CheckMultipleInstances();
-        (this.App, this.AppRunning) = MacroIO.GetExcelInstance();
+        if (this.App == null)
+        {
+            throw new Exception("Excel アプリケーションを起動できません。");
+        }
+        this.SetupWb(filePath);
+        VBComponents vbaComponents = this.Wb!.VBProject.VBComponents;
 
-        try
-        {
-            (this.Wb, this.WbOpen) = MacroIO.GetOrOpenWorkbook(this.App, filePath);
-        }
-        catch (Exception)
-        {
-            this.ReleaseApp();
-            throw;
-        }
         string wbName = Path.GetFileName(filePath);
         Console.WriteLine($"{wbName} の処理を開始しました。");
 
@@ -209,8 +194,6 @@ public class MacroIO
         string destDir = Path.Combine(
             Path.GetFullPath(this.Settings.Macros.Dir), bookDir);
         Directory.CreateDirectory(destDir);
-
-        VBComponents vbaComponents = this.Wb.VBProject.VBComponents;
 
         try
         {
@@ -252,112 +235,38 @@ public class MacroIO
         }
         finally
         {
-            // 例外が起きても起きなくてもブックとアプリケーションを解放する。
-            Release();
+            // 例外が起きても起きなくてもブックを解放する。
+            this.ReleaseWb();
         }
+    }
+
+    public void ExtractMacros(bool clean)
+    {
+        MacroIO.CheckMultipleInstances();
+        this.SetupApp();
+
+        foreach (var f in this.WbFiles)
+        {
+            try
+            {
+                this.ExtractMacrosFromWb(f, clean);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"エラー: {e.Message}");
+                this.ReleaseWb();
+                break;
+            }
+        }
+
+        this.ReleaseApp();
     }
 
     /// <summary>
-    /// Excel ブックへ VBA マクロを書き戻す。
+    /// ドキュメントのマクロを上書きする関数
     /// </summary>
-    /// <param name="filePath">Excel ブックのパス</param>
-    /// <param name="macrosDir">.bas ファイルの保存先ディレクトリ</param>
-    /// <param name="clean">この引数は未使用です</param>
-    /// <exception cref="DirectoryNotFoundException"></exception>
-    public void WriteBackMacros(string filePath, bool clean)
-    {
-        MacroIO.CheckMultipleInstances();
-        (this.App, this.AppRunning) = MacroIO.GetExcelInstance();
-
-        try
-        {
-            (this.Wb, this.WbOpen) = MacroIO.GetOrOpenWorkbook(this.App, filePath);
-        }
-        catch (Exception)
-        {
-            this.ReleaseApp();
-            throw;
-        }
-        string wbName = Path.GetFileName(filePath);
-        Console.WriteLine($"{wbName} の処理を開始しました。");
-
-        // .bas ファイルが保存されているディレクトリ
-        string bookDir = wbName;
-        if (!this.Settings.Macros.BookDirExt)
-        {
-            bookDir = Path.GetFileNameWithoutExtension(wbName);
-        }
-        var basDir = Path.Combine(
-            Path.GetFullPath(this.Settings.Macros.Dir), bookDir);
-
-        // ディレクトリが存在しなければ例外をスローする。
-        if (!Directory.Exists(basDir))
-        {
-            Release();
-            throw new DirectoryNotFoundException(
-                $"ディレクトリが見つかりません: {basDir}");
-        }
-
-        // basDir にある .bas ファイルのリストを取得する。
-        var basFiles = Directory.GetFiles(basDir, "*.bas");
-
-        foreach (var basFile in basFiles)
-        {
-            // basFile に書かれた Attribute VB_Name からコンポーネント名を取得する。
-            string componentName = "";
-            Encoding shiftJisEncoding = Encoding.GetEncoding("shift_jis");
-            using (var sr = new StreamReader(basFile, shiftJisEncoding))
-            {
-                string? line;
-                while ((line = sr.ReadLine()) != null)
-                {
-                    if (line.StartsWith("Attribute VB_Name"))
-                    {
-                        componentName = line.Split('\"')[1];
-                        break;
-                    }
-                }
-            }
-
-            VBComponents vbaComponents = this.Wb.VBProject.VBComponents;
-
-            // 書き戻し先のコンポーネント
-            VBComponent? component;
-            try
-            {
-                component = vbaComponents.Item(componentName);
-            }
-            catch (IndexOutOfRangeException)
-            {
-                component = null;
-            }
-
-            if (component != null && component.Type == vbext_ComponentType.vbext_ct_Document)
-            {
-                // このコンポーネントはシートまたはブックに関連付けられている。
-                // ドキュメントのマクロを上書きする。
-                OverwriteDocumentMacro(component, basFile);
-            }
-            else
-            {
-                // このコンポーネントはシートまたはブックに関連付けられていない。
-                if (component != null)
-                {
-                    // 既存のモジュールを削除する。
-                    vbaComponents.Remove(vbaComponents.Item(componentName));
-                }
-                // VBA マクロをブックにインポートする。
-                this.Wb.VBProject.VBComponents.Import(basFile);
-            }
-            Console.WriteLine($"{componentName} を書き戻しました。");
-        }
-        // Excel ブックを保存する。
-        this.Wb.Save();
-
-        // ブックとアプリケーションを解放する。
-        Release();
-    }
-
+    /// <param name="component"></param>
+    /// <param name="basFile"></param>
     protected static void OverwriteDocumentMacro(VBComponent component, string basFile)
     {
         // 既存のコードを削除する。
@@ -402,5 +311,120 @@ public class MacroIO
 
         // 新しいコードを追加する
         codeModule.AddFromString(newCode);
+    }
+
+    /// <summary>
+    /// Excel ブックへ VBA マクロを書き戻す関数
+    /// </summary>
+    /// <param name="filePath">Excel ブックのパス</param>
+    /// <param name="clean">この引数は未使用です</param>
+    /// <exception cref="DirectoryNotFoundException"></exception>
+    protected void WriteMacrosToWb(string filePath, bool clean)
+    {
+        if (this.App == null)
+        {
+            throw new Exception("Excel アプリケーションを起動できません。");
+        }
+        this.SetupWb(filePath);
+        VBComponents vbaComponents = this.Wb!.VBProject.VBComponents;
+
+        string wbName = Path.GetFileName(filePath);
+        Console.WriteLine($"{wbName} の処理を開始しました。");
+
+        // .bas ファイルが保存されているディレクトリ
+        string bookDir = wbName;
+        if (!this.Settings.Macros.BookDirExt)
+        {
+            bookDir = Path.GetFileNameWithoutExtension(wbName);
+        }
+        var basDir = Path.Combine(
+            Path.GetFullPath(this.Settings.Macros.Dir), bookDir);
+
+        // ディレクトリが存在しなければ例外をスローする。
+        if (!Directory.Exists(basDir))
+        {
+            ReleaseWb();
+            throw new DirectoryNotFoundException(
+                $"ディレクトリが見つかりません: {basDir}");
+        }
+
+        // basDir にある .bas ファイルのリストを取得する。
+        var basFiles = Directory.GetFiles(basDir, "*.bas");
+
+        foreach (var basFile in basFiles)
+        {
+            // basFile に書かれた Attribute VB_Name からコンポーネント名を取得する。
+            string componentName = "";
+            Encoding shiftJisEncoding = Encoding.GetEncoding("shift_jis");
+            using (var sr = new StreamReader(basFile, shiftJisEncoding))
+            {
+                string? line;
+                while ((line = sr.ReadLine()) != null)
+                {
+                    if (line.StartsWith("Attribute VB_Name"))
+                    {
+                        componentName = line.Split('\"')[1];
+                        break;
+                    }
+                }
+            }
+
+            // 書き戻し先のコンポーネント
+            VBComponent? component;
+            try
+            {
+                component = vbaComponents.Item(componentName);
+            }
+            catch (IndexOutOfRangeException)
+            {
+                component = null;
+            }
+
+            if (component != null && component.Type == vbext_ComponentType.vbext_ct_Document)
+            {
+                // このコンポーネントはシートまたはブックに関連付けられている。
+                // ドキュメントのマクロを上書きする。
+                OverwriteDocumentMacro(component, basFile);
+            }
+            else
+            {
+                // このコンポーネントはシートまたはブックに関連付けられていない。
+                if (component != null)
+                {
+                    // 既存のモジュールを削除する。
+                    vbaComponents.Remove(vbaComponents.Item(componentName));
+                }
+                // VBA マクロをブックにインポートする。
+                this.Wb.VBProject.VBComponents.Import(basFile);
+            }
+            Console.WriteLine($"{componentName} を書き戻しました。");
+        }
+        // Excel ブックを保存する。
+        this.Wb.Save();
+
+        // ブックを解放する。
+        this.ReleaseWb();
+    }
+
+    public void WriteMacros(bool clean)
+    {
+        MacroIO.CheckMultipleInstances();
+        this.SetupApp();
+
+        foreach (var f in this.WbFiles)
+        {
+            try
+            {
+                this.WriteMacrosToWb(f, clean);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"エラー: {e.Message}");
+                this.ReleaseWb();
+                break;
+            }
+        }
+
+        this.ReleaseApp();
     }
 }
