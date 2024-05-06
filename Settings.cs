@@ -1,4 +1,6 @@
-﻿namespace Settings;
+﻿using System.Text;
+
+namespace Settings;
 
 // TODO: バリデーションのメソッドを実装する
 
@@ -21,5 +23,23 @@ public class MacrosSettings
     // ブックごとのディレクトリの名前に拡張子をつけるかどうか
     // 拡張子違いのブックがある場合は true にする
     public bool BookDirExt { get; set; } = false;
+    // マクロの保存時のエンコーディング (utf-8, shift_jis)
     public string Encoding { get; set; } = "utf-8";
+
+    public Encoding GetEncodingObj()
+    {
+        // this.Encoding が "utf-8" または "shift_jis" であること。
+        if (this.Encoding == "utf-8")
+        {
+            return new UTF8Encoding(false);
+        }
+        else if (this.Encoding == "shift_jis")
+        {
+            return System.Text.Encoding.GetEncoding("shift_jis");
+        }
+        else
+        {
+            throw new Exception("Invalid encoding");
+        }
+    }
 }

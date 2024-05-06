@@ -166,6 +166,27 @@ public class MacroIO
     }
 
     /// <summary>
+    /// エンコーディングを指定して VB コンポーネントをエクスポートする関数
+    /// </summary>
+    protected static void ExportComponent(
+        VBComponent component, string path, Encoding encoding)
+    {
+        // VBAコードをエクスポート
+        component.Export(path);
+
+        // エンコーディングの設定が shift_jis でなければ
+        // エンコーディングを変えて保存しなおす。
+        var sjisEncoding = Encoding.GetEncoding("shift_jis");
+        if (encoding != sjisEncoding)
+        {
+            // ファイルを開き、内容を読み取る。
+            string code = File.ReadAllText(path, sjisEncoding);
+            // 内容を指定したエンコーディングで再保存する。
+            File.WriteAllText(path, code, encoding);
+        }
+    }
+
+    /// <summary>
     /// Excel ブックから VBA マクロを抽出し .bas ファイルとして保存する関数
     /// </summary>
     /// <param name="filePath">Excel ブックのパス</param>
@@ -195,11 +216,15 @@ public class MacroIO
             Path.GetFullPath(this.Settings.Macros.Dir), bookDir);
         Directory.CreateDirectory(destDir);
 
+        // 保存時に使うエンコーディング
+        var encoding = this.Settings.Macros.GetEncodingObj();
+
         try
         {
             foreach (VBComponent component in vbaComponents)
             {
                 string componentName = component.Name;
+                
                 if (component.Type == vbext_ComponentType.vbext_ct_MSForm)
                 {
                     // フォームコンポーネントは無視する。
@@ -208,7 +233,8 @@ public class MacroIO
                 else if (component.Type == vbext_ComponentType.vbext_ct_StdModule)
                 {
                     // 標準モジュール
-                    component.Export(Path.Combine(destDir, $"{componentName}.bas"));
+                    var destPath = Path.Combine(destDir, $"{componentName}.bas");
+                    MacroIO.ExportComponent(component, destPath, encoding);
                     Console.WriteLine($"{componentName} を抽出しました。");
                 }
                 else if (component.Type == vbext_ComponentType.vbext_ct_ClassModule)
@@ -224,7 +250,8 @@ public class MacroIO
                     {
                         componentName = $"{componentName} ({sheetName})";
                     }
-                    component.Export(Path.Combine(destDir, $"{componentName}.bas"));
+                    var destPath = Path.Combine(destDir, $"{componentName}.bas");
+                    MacroIO.ExportComponent(component, destPath, encoding);
                     Console.WriteLine($"{componentName} を抽出しました。");
                 }
             }
@@ -267,7 +294,8 @@ public class MacroIO
     /// </summary>
     /// <param name="component"></param>
     /// <param name="basFile"></param>
-    protected static void OverwriteDocumentMacro(VBComponent component, string basFile)
+    protected static void OverwriteDocumentMacro(
+        VBComponent component, string basFile, Encoding encoding)
     {
         // 既存のコードを削除する。
         CodeModule codeModule = component.CodeModule;
@@ -277,9 +305,7 @@ public class MacroIO
             codeModule.DeleteLines(1, lineCount);
         }
 
-        // Shift JIS エンコーディングでファイルの内容を取得する
-        Encoding shiftJisEncoding = Encoding.GetEncoding("shift_jis");
-        var lines = File.ReadAllLines(basFile, shiftJisEncoding);
+        var lines = File.ReadAllLines(basFile, encoding);
 
         // メタデータの行をスキップする
         bool isMetaData = true;
@@ -311,6 +337,27 @@ public class MacroIO
 
         // 新しいコードを追加する
         codeModule.AddFromString(newCode);
+    }
+
+    protected static void ImportComponent(
+               VBComponents vbaComponents, string path, Encoding encoding)
+    {
+        var sjisEncoding = Encoding.GetEncoding("shift_jis");
+        if (encoding != sjisEncoding)
+        {
+            // エンコーディングの設定が shift_jis でなければ
+            // shift_jis で一時ファイルを作ってそれをインポートする。
+            string code = File.ReadAllText(path, encoding);
+            string tempFilePath = Path.GetTempFileName();
+            File.WriteAllText(tempFilePath, code, sjisEncoding);
+            vbaComponents.Import(tempFilePath);
+            File.Delete(tempFilePath);
+        }
+        else
+        {
+            // エンコーディングの設定が shift_jis ならそのままインポートする。
+            vbaComponents.Import(path);
+        }
     }
 
     /// <summary>
@@ -355,8 +402,8 @@ public class MacroIO
         {
             // basFile に書かれた Attribute VB_Name からコンポーネント名を取得する。
             string componentName = "";
-            Encoding shiftJisEncoding = Encoding.GetEncoding("shift_jis");
-            using (var sr = new StreamReader(basFile, shiftJisEncoding))
+            Encoding encoding = this.Settings.Macros.GetEncodingObj();
+            using (var sr = new StreamReader(basFile, encoding))
             {
                 string? line;
                 while ((line = sr.ReadLine()) != null)
@@ -380,11 +427,12 @@ public class MacroIO
                 component = null;
             }
 
-            if (component != null && component.Type == vbext_ComponentType.vbext_ct_Document)
+            if (component != null
+                && component.Type == vbext_ComponentType.vbext_ct_Document)
             {
                 // このコンポーネントはシートまたはブックに関連付けられている。
                 // ドキュメントのマクロを上書きする。
-                OverwriteDocumentMacro(component, basFile);
+                MacroIO.OverwriteDocumentMacro(component, basFile, encoding);
             }
             else
             {
@@ -395,7 +443,7 @@ public class MacroIO
                     vbaComponents.Remove(vbaComponents.Item(componentName));
                 }
                 // VBA マクロをブックにインポートする。
-                this.Wb.VBProject.VBComponents.Import(basFile);
+                MacroIO.ImportComponent(vbaComponents, basFile, encoding);
             }
             Console.WriteLine($"{componentName} を書き戻しました。");
         }
