@@ -151,17 +151,32 @@ public class MacroIO
     {
         if (this.App == null) return;
 
-        // インスタンスが元々起動していたのでなければ終了する。
         if (!this.AppRunning)
         {
+            // インスタンスが元々起動していたのでなければ終了する。
             this.App.Quit();
+            Marshal.ReleaseComObject(this.App);
+
+            // 起動したインスタンスを終了する。
+            Process[] excelProcesses = Process.GetProcessesByName("EXCEL");
+            foreach (var process in excelProcesses)
+            {
+                try
+                {
+                    process.Kill();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"エラー: {ex.Message}");
+                }
+            }
         }
         else
         {
             this.App.Visible = true;
+            Marshal.ReleaseComObject(this.App);
         }
 
-        Marshal.ReleaseComObject(this.App);
         this.App = null;
     }
 
