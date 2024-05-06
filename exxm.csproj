@@ -6,9 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <FileVersion>0.0.3.0</FileVersion>
+    <FileVersion>0.0.4.0</FileVersion>
     <Copyright>© 2024 satamame.com</Copyright>
-    <AssemblyVersion>0.0.3.0</AssemblyVersion>
+    <AssemblyVersion>0.0.4.0</AssemblyVersion>
   </PropertyGroup>
 
   <ItemGroup>

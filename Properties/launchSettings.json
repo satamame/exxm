@@ -2,6 +2,7 @@
   "profiles": {
     "exxm": {
       "commandName": "Project",
+      "commandLineArgs": "--from-excel"
     }
   }
 }
