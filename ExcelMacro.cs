@@ -224,8 +224,17 @@ public class MacroIO
             foreach (VBComponent component in vbaComponents)
             {
                 string componentName = component.Name;
-                
-                if (component.Type == vbext_ComponentType.vbext_ct_MSForm)
+
+                CodeModule codeModule = component.CodeModule;
+                string code = codeModule.Lines[1, codeModule.CountOfLines];
+                code = code.Trim();
+
+                if (code == "" || code == "Option Explicit")
+                {
+                    // コードがないコンポーネントは無視する。
+                    continue;
+                }
+                else if (component.Type == vbext_ComponentType.vbext_ct_MSForm)
                 {
                     // フォームコンポーネントは無視する。
                     continue;
@@ -398,11 +407,13 @@ public class MacroIO
         // basDir にある .bas ファイルのリストを取得する。
         var basFiles = Directory.GetFiles(basDir, "*.bas");
 
+        // ファイルの読み込みに使うエンコーディング
+        Encoding encoding = this.Settings.Macros.GetEncodingObj();
+
         foreach (var basFile in basFiles)
         {
             // basFile に書かれた Attribute VB_Name からコンポーネント名を取得する。
             string componentName = "";
-            Encoding encoding = this.Settings.Macros.GetEncodingObj();
             using (var sr = new StreamReader(basFile, encoding))
             {
                 string? line;
