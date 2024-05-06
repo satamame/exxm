@@ -225,16 +225,20 @@ public class MacroIO
             {
                 string componentName = component.Name;
 
+                // コードがないコンポーネントは無視する。
                 CodeModule codeModule = component.CodeModule;
-                string code = codeModule.Lines[1, codeModule.CountOfLines];
-                code = code.Trim();
-
-                if (code == "" || code == "Option Explicit")
+                int modLineCount = codeModule.CountOfLines;
+                if (modLineCount < 1)
                 {
-                    // コードがないコンポーネントは無視する。
                     continue;
                 }
-                else if (component.Type == vbext_ComponentType.vbext_ct_MSForm)
+                string code = codeModule.Lines[1, modLineCount].Trim();
+                if (code == "" || code == "Option Explicit")
+                {
+                    continue;
+                }
+
+                if (component.Type == vbext_ComponentType.vbext_ct_MSForm)
                 {
                     // フォームコンポーネントは無視する。
                     continue;
