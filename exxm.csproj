@@ -9,6 +9,7 @@
     <FileVersion>0.0.4.0</FileVersion>
     <Copyright>© 2024 satamame.com</Copyright>
     <AssemblyVersion>0.0.4.0</AssemblyVersion>
+    <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
   <ItemGroup>

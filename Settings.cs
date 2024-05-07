@@ -13,7 +13,7 @@ public class AppSettings
 public class ExcelSettings
 {
     public string Dir { get; set; } = "books";
-    public List<string> Exclude { get; set; } = [];
+    public List<string> Exclude { get; set; } = new List<string>();
     public List<string> Ext { get; set; } = [".xlsm", ".xlsb"];
 }
 

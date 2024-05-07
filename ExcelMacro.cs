@@ -14,7 +14,7 @@ public class MacroIO
     private Excel.Workbook? Wb { get; set; } = null;
     private bool AppRunning = false;
     private bool WbOpen = false;
-    public List<string> WbFiles { get; set; } = [];
+    public List<string> WbFiles { get; set; } = new List<string>();
 
     /// <summary>
     /// コンストラクタ

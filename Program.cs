@@ -3,6 +3,8 @@ using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 using ExcelMacro;
 using Settings;
+using Args;
+using System.Reflection;
 
 // エンコーディング プロバイダーを登録する
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -18,20 +20,33 @@ using (var reader = new StreamReader("exxm-conf.yml"))
 }
 
 /* コマンドライン引数を取得する */
-bool fromExcel = args.Contains("--from-excel");
-bool toExcel = args.Contains("--to-excel");
-bool clean = args.Contains("--clean");
-
-if (fromExcel && toExcel)
+ComArgs comArgs = new ComArgs(args);
+try
 {
-    Console.WriteLine("" +
-        "エラー: --from-excel と --to-excel は同時に指定できません。");
+    comArgs.Validate();
+}
+catch (Exception e)
+{
+    Console.WriteLine($"エラー: {e.Message}");
+    Console.WriteLine("--help オプションで引数の詳細をご覧ください。");
     return;
 }
-if (!fromExcel && !toExcel)
+
+if (comArgs.Mode == "version")
 {
-    Console.WriteLine(
-        "エラー: --from-excel または --to-excel を指定してください。");
+    var version = Assembly.GetExecutingAssembly().GetName().Version;
+    Console.WriteLine($"Version: {version}");
+    return;
+}
+
+if (comArgs.Mode == "help")
+{
+    Console.WriteLine("コマンドライン引数");
+    Console.WriteLine("  --version: バージョン情報を表示します。");
+    Console.WriteLine("  --help: このヘルプを表示します。");
+    Console.WriteLine("  --from-excel: Excel ブックから VBA マクロを抽出します。");
+    Console.WriteLine("  --to-excel: Excel ブックへ VBA マクロを書き戻します。");
+    Console.WriteLine("  --clean: 抽出先または書き戻し先を初期化してから実行します。");
     return;
 }
 
@@ -43,12 +58,12 @@ if (macroIO.WbFiles.Count == 0)
     Console.WriteLine("対象となる Excel ブックがありません。");
     aborted = true;
 }
-else if (fromExcel)
+else if (comArgs.Mode == "from-excel")
 {
     /* Excel ブックから VBA マクロを抽出する */
     try
     {
-        macroIO.ExtractMacros(clean);
+        macroIO.ExtractMacros(comArgs.Clean);
     }
     catch (Exception e)
     {
@@ -56,12 +71,12 @@ else if (fromExcel)
         aborted = true;
     }
 }
-else if (toExcel)
+else if (comArgs.Mode == "to-excel")
 {
     /* Excel ブックへ VBA マクロを書き戻す */
     try
     {
-        macroIO.WriteMacros(clean);
+        macroIO.WriteMacros(comArgs.Clean);
     }
     catch (Exception e)
     {
