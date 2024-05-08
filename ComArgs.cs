@@ -5,7 +5,7 @@ public class ComArgs
     string[] Args { get; set; }
 
     public string Mode { get; set; } = "";
-    public bool Clean { get; set; }
+    public bool Clean { get; set; } = false;
 
     public ComArgs(string[] args)
     {
@@ -28,7 +28,7 @@ public class ComArgs
             {
                 if (mode != "")
                 {
-                    throw new Exception($"--{mode} と --version は同時に指定できません。");
+                    throw new Exception($"--{mode} と {arg} は同時に指定できません。");
                 }
                 mode = "version";
             }
@@ -36,7 +36,7 @@ public class ComArgs
             {
                 if (mode != "")
                 {
-                    throw new Exception($"--{mode} と --help は同時に指定できません。");
+                    throw new Exception($"--{mode} と {arg} は同時に指定できません。");
                 }
                 mode = "help";
             }
@@ -44,25 +44,44 @@ public class ComArgs
             {
                 if (mode != "")
                 {
-                    throw new Exception($"--{mode} と --from-excel は同時に指定できません。");
+                    throw new Exception($"--{mode} と {arg} は同時に指定できません。");
                 }
                 mode = "from-excel";
+            }
+            else if (arg == "--from-xl")
+            {
+                if (mode != "")
+                {
+                    throw new Exception($"--{mode} と {arg} は同時に指定できません。");
+                }
+                mode = "from-xl";
             }
             else if (arg == "--to-excel")
             {
                 if (mode != "")
                 {
-                    throw new Exception($"--{mode} と --to-excel は同時に指定できません。");
+                    throw new Exception($"--{mode} と {arg} は同時に指定できません。");
                 }
                 mode = "to-excel";
             }
+            else if (arg == "--to-xl")
+            {
+                if (mode != "")
+                {
+                    throw new Exception($"--{mode} と {arg} は同時に指定できません。");
+                }
+                mode = "to-xl";
+            }
             else if (arg == "--clean")
             {
-                if (clean)
-                {
-                    throw new Exception("--clean が複数回指定されています。");
-                }
-                clean = true;
+                // TODO: Implement --clean
+                throw new Exception("--clean は今後のバージョンで実装予定です。");
+
+                //if (clean)
+                //{
+                //    throw new Exception("--clean が複数回指定されています。");
+                //}
+                //clean = true;
             }
             else
             {
@@ -74,6 +93,9 @@ public class ComArgs
         {
             throw new Exception("--from-excel または --to-excel を指定してください。");
         }
+
+        if (mode == "from-xl") mode = "from-excel";
+        if (mode == "to-xl") mode = "to-excel";
 
         this.Mode = mode;
         this.Clean = clean;

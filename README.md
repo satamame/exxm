@@ -38,13 +38,13 @@
 ### 抽出
 
 ```
-> ./exxm.exe --from-excel
+> ./exxm --from-xl
 ```
 
 ### 書き戻し
 
 ```
-> ./exxm.exe --to-excel
+> ./exxm --to-xl
 ```
 
 ## エンコーディング

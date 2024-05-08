@@ -12,8 +12,9 @@ public class MacroIO
     private AppSettings Settings { get; set; }
     private Excel.Application? App { get; set; } = null;
     private Excel.Workbook? Wb { get; set; } = null;
-    private bool AppRunning = false;
-    private bool WbOpen = false;
+    private bool AppWasRunning { get; set; } = false;
+    private bool AppWasVisible { get; set; } = false;
+    private bool WbWasOpen { get; set; } = false;
     public List<string> WbFiles { get; set; } = new List<string>();
 
     /// <summary>
@@ -72,7 +73,7 @@ public class MacroIO
         Process[] excelProcesses = Process.GetProcessesByName("EXCEL");
 
         // DEBUG: 起動中の Excel インスタンスの数を表示する
-        Console.WriteLine($"Excel のインスタンス数: {excelProcesses.Length}");
+        Console.WriteLine($"起動中の Excel インスタンス数: {excelProcesses.Length}");
 
         if (excelProcesses.Length > 1)
         {
@@ -90,15 +91,18 @@ public class MacroIO
     {
         try
         {
+            // すでに起動している Excel インスタンスを取得する。
             this.App = (Excel.Application)Marshal2.Marshal2.GetActiveObject(
                 "Excel.Application");
-            this.AppRunning = true;
+            this.AppWasRunning = true;
         }
         catch (COMException)
         {
+            // Excel インスタンスが起動していない場合は新たに起動する。
             this.App = new Excel.Application();
-            this.AppRunning = false;
+            this.AppWasRunning = false;
         }
+        this.AppWasVisible = this.App.Visible;
         this.App.Visible = false;
     }
 
@@ -117,13 +121,13 @@ public class MacroIO
         try
         {
             this.Wb = this.App.Workbooks[wbName];
-            this.WbOpen = true;
+            this.WbWasOpen = true;
         }
         catch (COMException)
         {
             // Open メソッドに絶対パスを渡さないとエラーになる (原因不明)
             this.Wb = this.App.Workbooks.Open(Path.GetFullPath(path));
-            this.WbOpen = false;
+            this.WbWasOpen = false;
         }
     }
 
@@ -138,7 +142,7 @@ public class MacroIO
         }
 
         // ブックが元々開いていたのでなければ閉じる。
-        if (!this.WbOpen)
+        if (!this.WbWasOpen)
         {
             this.Wb.Close(false);
         }
@@ -151,13 +155,13 @@ public class MacroIO
     {
         if (this.App == null) return;
 
-        if (!this.AppRunning)
+        if (!this.AppWasRunning)
         {
             // インスタンスが元々起動していたのでなければ終了する。
             this.App.Quit();
             Marshal.ReleaseComObject(this.App);
 
-            // 起動したインスタンスを終了する。
+            // 起動中のプロセスを終了する。
             Process[] excelProcesses = Process.GetProcessesByName("EXCEL");
             foreach (var process in excelProcesses)
             {
@@ -173,7 +177,7 @@ public class MacroIO
         }
         else
         {
-            this.App.Visible = true;
+            this.App.Visible = this.AppWasVisible;
             Marshal.ReleaseComObject(this.App);
         }
 

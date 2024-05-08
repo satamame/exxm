@@ -6,10 +6,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <FileVersion>0.0.5.0</FileVersion>
+    <FileVersion>0.0.6.0</FileVersion>
     <Copyright>© 2024 satamame.com</Copyright>
-    <AssemblyVersion>0.0.5.0</AssemblyVersion>
+    <AssemblyVersion>0.0.6.0</AssemblyVersion>
     <PlatformTarget>x64</PlatformTarget>
+    <Version>0.0.6</Version>
+    <Authors>satamame.com</Authors>
+    <PackageProjectUrl>https://github.com/satamame/exxm</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/satamame/exxm</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,6 +34,10 @@
     </None>
     <None Update="exxm-conf.yml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
     </None>
   </ItemGroup>
 
