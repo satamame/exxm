@@ -44,9 +44,10 @@ if (comArgs.Mode == "help")
     Console.WriteLine("コマンドライン引数");
     Console.WriteLine("  --version: バージョン情報を表示します。");
     Console.WriteLine("  --help: このヘルプを表示します。");
-    Console.WriteLine("  --from-excel: Excel ブックから VBA マクロを抽出します。");
-    Console.WriteLine("  --to-excel: Excel ブックへ VBA マクロを書き戻します。");
-    Console.WriteLine("  --clean: 抽出先または書き戻し先を初期化してから実行します。");
+    Console.WriteLine("  --from-excel/--from-xl: Excel ブックから VBA マクロを抽出します。");
+    Console.WriteLine("  --to-excel/--to-xl: Excel ブックへ VBA マクロを書き戻します。");
+    // TODO: --clean オプションを実装したらコメントアウトを外す
+    //Console.WriteLine("  --clean: 抽出先または書き戻し先を初期化してから実行します。");
     return;
 }
 
