@@ -36,7 +36,7 @@ public class MacroIO
         }
 
         // 対象となる Excel ブックのファイル名を取得する。
-        this.WbFiles = FindWbFiles();
+        this.WbFiles = this.FindWbFiles();
     }
 
     /// <summary>
@@ -117,18 +117,44 @@ public class MacroIO
             throw new Exception("Excel アプリケーションを起動できません。");
         }
 
+        string fullPath = Path.GetFullPath(path);
+
+        // パスが fullPath であるブックが開いていれば保持する。
+        foreach (Excel.Workbook wb in this.App.Workbooks)
+        {
+            if (wb.FullName.Equals(fullPath, StringComparison.OrdinalIgnoreCase))
+            {
+                this.Wb = wb;
+                this.WbWasOpen = true;
+                return;
+            }
+        }
+
+        // 同じ名前のブックが開いているか確認する。
         string wbName = Path.GetFileName(path);
+        Excel.Workbook? tmpWb;
+        bool sameNameExists;
         try
         {
-            this.Wb = this.App.Workbooks[wbName];
-            this.WbWasOpen = true;
+            tmpWb = this.App.Workbooks[wbName];
+            sameNameExists = true;
+            Marshal.ReleaseComObject(tmpWb);
         }
         catch (COMException)
         {
-            // Open メソッドに絶対パスを渡さないとエラーになる (原因不明)
-            this.Wb = this.App.Workbooks.Open(Path.GetFullPath(path));
-            this.WbWasOpen = false;
+            // 例外をキャッチしたので、同じ名前のブックは開いていない。
+            sameNameExists = false;
         }
+
+        if (sameNameExists)
+        {
+            // 同じ名前のブックが開いていた場合はエラーにする。
+            throw new Exception($"{wbName} と同じ名前のブックが開いています。");
+        }
+
+        // パスが fullPath であるブックを開いて保持する。
+        this.Wb = this.App.Workbooks.Open(fullPath);
+        this.WbWasOpen = false;
     }
 
     protected void ReleaseWb()
