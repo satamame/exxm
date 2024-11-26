@@ -20,7 +20,7 @@ public class MacroIO
     /// <summary>
     /// コンストラクタ
     /// </summary>
-    /// <param name="settings"></param>
+    /// <param name="settings">アプリの設定</param>
     public MacroIO(AppSettings settings)
     {
         this.Settings = settings;
@@ -157,11 +157,14 @@ public class MacroIO
         this.WbWasOpen = false;
     }
 
+    /// <summary>
+    /// Excel ブックを解放する関数
+    /// </summary>
     protected void ReleaseWb()
     {
         if (this.Wb == null) return;
 
-        // シートをすべて解放する
+        // シートをすべて解放する。
         foreach (Excel.Worksheet ws in this.Wb.Worksheets)
         {
             Marshal.ReleaseComObject(ws);
@@ -177,6 +180,9 @@ public class MacroIO
         this.Wb = null;
     }
 
+    /// <summary>
+    /// Excel インスタンスを解放する関数
+    /// </summary>
     protected void ReleaseApp()
     {
         if (this.App == null) return;
@@ -213,6 +219,9 @@ public class MacroIO
     /// <summary>
     /// エンコーディングを指定して VB コンポーネントをエクスポートする関数
     /// </summary>
+    /// <param name="component">VB コンポーネント</param>
+    /// <param name="path">エクスポート先のパス</param>
+    /// <param name="encoding">保存時のエンコーディング</param>
     protected static void ExportComponent(
         VBComponent component, string path, Encoding encoding)
     {
@@ -235,7 +244,7 @@ public class MacroIO
     /// Excel ブックから VBA マクロを抽出し .bas ファイルとして保存する関数
     /// </summary>
     /// <param name="filePath">Excel ブックのパス</param>
-    /// <param name="clean">この引数は未使用です</param>
+    /// <param name="clean">最初に保存先をクリアするか (未実装)</param>
     protected void ExtractMacrosFromWb(string filePath, bool clean)
     {
         if (this.App == null)
@@ -325,6 +334,10 @@ public class MacroIO
         }
     }
 
+    /// <summary>
+    /// アプリの設定に従って VBA マクロを抽出する関数
+    /// </summary>
+    /// <param name="clean">最初に保存先をクリアするか (未実装)</param>
     public void ExtractMacros(bool clean)
     {
         MacroIO.CheckMultipleInstances();
@@ -350,8 +363,9 @@ public class MacroIO
     /// <summary>
     /// ドキュメントのマクロを上書きする関数
     /// </summary>
-    /// <param name="component"></param>
-    /// <param name="basFile"></param>
+    /// <param name="component">VB コンポーネント</param>
+    /// <param name="basFile">.bas ファイルのパス</param>
+    /// <param name="encoding">.bas ファイルのエンコーディング</param>
     protected static void OverwriteDocumentMacro(
         VBComponent component, string basFile, Encoding encoding)
     {
@@ -365,14 +379,14 @@ public class MacroIO
 
         var lines = File.ReadAllLines(basFile, encoding);
 
-        // メタデータの行をスキップする
+        // メタデータの行をスキップする。
         bool isMetaData = true;
         var filteredLines = new List<string>();
         foreach (var line in lines)
         {
             if (isMetaData)
             {
-                // メタデータのパターンに当てはまるかチェックする
+                // メタデータのパターンに当てはまるかチェックする。
                 string trimmedLine = line.TrimStart();
                 if (trimmedLine.StartsWith("VERSION")
                     || trimmedLine.StartsWith("BEGIN")
@@ -390,13 +404,19 @@ public class MacroIO
             filteredLines.Add(line);
         }
 
-        // 残った行を結合する
+        // 残った行を結合する。
         string newCode = string.Join(Environment.NewLine, filteredLines);
 
-        // 新しいコードを追加する
+        // 新しいコードを追加する。
         codeModule.AddFromString(newCode);
     }
 
+    /// <summary>
+    /// VBA マクロをブックにインポートする関数
+    /// </summary>
+    /// <param name="vbaComponents">ブックのコンポーネントコレクション</param>
+    /// <param name="path">.bas ファイルのパス</param>
+    /// <param name="encoding">.bas ファイルのエンコーディング</param>
     protected static void ImportComponent(
                VBComponents vbaComponents, string path, Encoding encoding)
     {
@@ -422,7 +442,7 @@ public class MacroIO
     /// Excel ブックへ VBA マクロを書き戻す関数
     /// </summary>
     /// <param name="filePath">Excel ブックのパス</param>
-    /// <param name="clean">この引数は未使用です</param>
+    /// <param name="clean">最初にマクロをクリアするか (未実装)</param>
     /// <exception cref="DirectoryNotFoundException"></exception>
     protected void WriteMacrosToWb(string filePath, bool clean)
     {
@@ -452,6 +472,8 @@ public class MacroIO
             throw new DirectoryNotFoundException(
                 $"ディレクトリが見つかりません: {basDir}");
         }
+
+        // TODO: clean オプションを実装する
 
         // basDir にある .bas ファイルのリストを取得する。
         var basFiles = Directory.GetFiles(basDir, "*.bas");
@@ -514,6 +536,10 @@ public class MacroIO
         this.ReleaseWb();
     }
 
+    /// <summary>
+    /// アプリの設定に従って VBA マクロを書き戻す関数
+    /// </summary>
+    /// <param name="clean">最初にマクロをクリアするか (未実装)</param>
     public void WriteMacros(bool clean)
     {
         MacroIO.CheckMultipleInstances();
