@@ -13,7 +13,6 @@ public class MacroIO
     private Excel.Application? App { get; set; } = null;
     private Excel.Workbook? Wb { get; set; } = null;
     private bool AppWasRunning { get; set; } = false;
-    private bool AppWasVisible { get; set; } = false;
     private bool WbWasOpen { get; set; } = false;
     public List<string> WbFiles { get; set; } = new List<string>();
 
@@ -92,6 +91,7 @@ public class MacroIO
         try
         {
             // すでに起動している Excel インスタンスを取得する。
+            // 複数のインスタンスが起動していないことを確認済みであること。
             this.App = (Excel.Application)Marshal2.Marshal2.GetActiveObject(
                 "Excel.Application");
             this.AppWasRunning = true;
@@ -102,8 +102,6 @@ public class MacroIO
             this.App = new Excel.Application();
             this.AppWasRunning = false;
         }
-        this.AppWasVisible = this.App.Visible;
-        this.App.Visible = false;
     }
 
     /// <summary>
@@ -167,17 +165,41 @@ public class MacroIO
         // シートをすべて解放する。
         foreach (Excel.Worksheet ws in this.Wb.Worksheets)
         {
-            Marshal.ReleaseComObject(ws);
+            Marshal.FinalReleaseComObject(ws);
         }
+        Marshal.FinalReleaseComObject(this.Wb.Worksheets);
+
+        // VBProject が利用している外部オブジェクトへの参照を解放する。
+        References refs = this.Wb.VBProject.References;
+        for (int i = refs.Count; i > 0; i--)
+        {
+            if (!refs.Item(i).BuiltIn)
+            {
+                refs.Remove(refs.Item(i));
+            }
+        }
+
+        // VBProject を解放する
+        foreach (VBComponent component in this.Wb.VBProject.VBComponents)
+        {
+            Marshal.FinalReleaseComObject(component);
+        }
+        Marshal.FinalReleaseComObject(this.Wb.VBProject.VBComponents);
+        Marshal.FinalReleaseComObject(this.Wb.VBProject);
 
         // ブックが元々開いていたのでなければ閉じる。
         if (!this.WbWasOpen)
         {
             this.Wb.Close(false);
         }
+
         // ブックを解放する。
-        Marshal.ReleaseComObject(this.Wb);
+        Marshal.FinalReleaseComObject(this.Wb);
         this.Wb = null;
+
+        // ガベージコレクションを強制実行する。
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
     }
 
     /// <summary>
@@ -187,33 +209,46 @@ public class MacroIO
     {
         if (this.App == null) return;
 
+        // ブックコレクションを解放する。
+        Marshal.FinalReleaseComObject(this.App.Workbooks);
+
+        // インスタンスが元々起動していたのでなければ終了する。
         if (!this.AppWasRunning)
         {
-            // インスタンスが元々起動していたのでなければ終了する。
+            IntPtr hWnd = this.App.Hwnd;
             this.App.Quit();
-            Marshal.ReleaseComObject(this.App);
 
-            // 起動中のプロセスを終了する。
+            // アプリを解放する。
+            Marshal.FinalReleaseComObject(this.App);
+
+            // バックグラウンドで起動したままになっていたら強制終了する。
             Process[] excelProcesses = Process.GetProcessesByName("EXCEL");
             foreach (var process in excelProcesses)
             {
-                try
+                if (process.MainWindowHandle == hWnd)
                 {
-                    process.Kill();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"エラー: {ex.Message}");
+                    try
+                    {
+                        process.Kill();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"エラー: {ex.Message}");
+                    }
                 }
             }
         }
         else
         {
-            this.App.Visible = this.AppWasVisible;
-            Marshal.ReleaseComObject(this.App);
+            // アプリを解放する。
+            Marshal.FinalReleaseComObject(this.App);
         }
 
         this.App = null;
+
+        // ガベージコレクションを強制実行する。
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
     }
 
     /// <summary>
