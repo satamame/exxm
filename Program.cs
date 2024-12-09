@@ -41,17 +41,19 @@ if (comArgs.Mode == "version")
 
 if (comArgs.Mode == "help")
 {
-    Console.WriteLine("コマンドライン引数");
+    Console.WriteLine("exxm [target] mode\n");
+    Console.WriteLine("target: 抽出または書き戻しの対象となる Excel ブック名。");
+    Console.WriteLine("mode: 以下のいずれか。");
     Console.WriteLine("  --version: バージョン情報を表示します。");
     Console.WriteLine("  --help: このヘルプを表示します。");
-    Console.WriteLine("  --from-excel/--from-xl: Excel ブックから VBA マクロを抽出します。");
-    Console.WriteLine("  --to-excel/--to-xl: Excel ブックへ VBA マクロを書き戻します。");
+    Console.WriteLine("  --from-xl: Excel ブックから VBA マクロを抽出します。");
+    Console.WriteLine("  --to-xl: Excel ブックへ VBA マクロを書き戻します。");
     // TODO: --clean オプションを実装したらコメントアウトを外す
     //Console.WriteLine("  --clean: 抽出先または書き戻し先を初期化してから実行します。");
     return;
 }
 
-var macroIO = new MacroIO(settings);
+var macroIO = new MacroIO(settings, comArgs.Target);
 var aborted = false;
 
 if (macroIO.WbFiles.Count == 0)
@@ -59,7 +61,7 @@ if (macroIO.WbFiles.Count == 0)
     Console.WriteLine("対象となる Excel ブックがありません。");
     aborted = true;
 }
-else if (comArgs.Mode == "from-excel")
+else if (comArgs.Mode == "from-xl")
 {
     /* Excel ブックから VBA マクロを抽出する */
     try
@@ -72,7 +74,7 @@ else if (comArgs.Mode == "from-excel")
         aborted = true;
     }
 }
-else if (comArgs.Mode == "to-excel")
+else if (comArgs.Mode == "to-xl")
 {
     /* Excel ブックへ VBA マクロを書き戻す */
     try

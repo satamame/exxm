@@ -4,6 +4,7 @@ public class ComArgs
 {
     string[] Args { get; set; }
 
+    public string Target { get; set; } = "";
     public string Mode { get; set; } = "";
     public bool Clean { get; set; } = false;
 
@@ -14,6 +15,7 @@ public class ComArgs
 
     public void Validate()
     {
+        string target = "";
         string mode = "";
         bool clean = false;
 
@@ -40,14 +42,6 @@ public class ComArgs
                 }
                 mode = "help";
             }
-            else if (arg == "--from-excel")
-            {
-                if (mode != "")
-                {
-                    throw new Exception($"--{mode} と {arg} は同時に指定できません。");
-                }
-                mode = "from-excel";
-            }
             else if (arg == "--from-xl")
             {
                 if (mode != "")
@@ -55,14 +49,6 @@ public class ComArgs
                     throw new Exception($"--{mode} と {arg} は同時に指定できません。");
                 }
                 mode = "from-xl";
-            }
-            else if (arg == "--to-excel")
-            {
-                if (mode != "")
-                {
-                    throw new Exception($"--{mode} と {arg} は同時に指定できません。");
-                }
-                mode = "to-excel";
             }
             else if (arg == "--to-xl")
             {
@@ -85,18 +71,20 @@ public class ComArgs
             }
             else
             {
-                throw new Exception($"Invalid argument: {arg}");
+                if (target != "")
+                {
+                    throw new Exception($"対象が複数指定されています。: {target}, {arg}");
+                }
+                target = arg;
             }
         }
 
         if (mode == "")
         {
-            throw new Exception("--from-excel または --to-excel を指定してください。");
+            throw new Exception("--from-xl または --to-xl を指定してください。");
         }
 
-        if (mode == "from-xl") mode = "from-excel";
-        if (mode == "to-xl") mode = "to-excel";
-
+        this.Target = target;
         this.Mode = mode;
         this.Clean = clean;
     }
