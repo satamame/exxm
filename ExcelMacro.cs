@@ -20,7 +20,8 @@ public class MacroIO
     /// コンストラクタ
     /// </summary>
     /// <param name="settings">アプリの設定</param>
-    public MacroIO(AppSettings settings)
+    /// <param name="target">1個のファイルを指定する場合のファイル名</param>
+    public MacroIO(AppSettings settings, string target)
     {
         this.Settings = settings;
 
@@ -34,8 +35,15 @@ public class MacroIO
             }
         }
 
-        // 対象となる Excel ブックのファイル名を取得する。
-        this.WbFiles = this.FindWbFiles();
+        if (target != "")
+        {
+            this.WbFiles = [Path.Combine(settings.Excel.Dir, target)];
+        }
+        else
+        {
+            // 対象となる Excel ブックのファイル名を取得する。
+            this.WbFiles = this.FindWbFiles();
+        }
     }
 
     /// <summary>
